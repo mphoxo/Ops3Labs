@@ -1,0 +1,10 @@
+#Verify CPU Support
+>lscpu | grep Virtualization
+(kvm_intel or kvm_amd)
+
+#Verify Permissions
+>ls -l /dev/kvm
+
+#Create the Disk Use qemu-img to create a qcow2
+>qemu-img create -f qcow2 test-disk.qcow2 10G
+	inspect:bash qemu-img info test-disk.qcow2
