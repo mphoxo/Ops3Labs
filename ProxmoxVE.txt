@@ -1,0 +1,33 @@
+#Login into Proxmox
+	Enter address of Proxmox(Debian) in firefox(https://<ip>:8006)
+	User: root
+
+#Deploy VM
+	1. Click "Create VM" (Top Right)
+	2. Set up VM based on requirements
+	3. Confirm & Finish
+	4. You should see "QM CREATE - Status: OK." at bottom
+
+#Taking snapshort of empty state
+	>Select VM 100.
+	>Go to Snapshots.
+	>Click Take Snapshot.
+
+#Booting VM
+	>Click Console -> Start Now.
+	>Watch the VM boot
+
+#Replicating VM(Clone)
+	 >Right-click VM 100, select Clone.
+
+#Deploying a Container LXC
+	>Click Create CT (Top Right)
+	(Set up Container as per requirements , see example below)
+	>General: Name: lab-ct-ubuntu, Password: test.
+	>Template: Select an Ubuntu Template (Download one in local storage -> CT Templates if needed).
+	>Resources: Give it 1 Core, 512MB RAM.
+	>Network: DHCP.
+	>Finish.
+
+#Race VM and Container
+	>Stop and start each,  and record time from start 
