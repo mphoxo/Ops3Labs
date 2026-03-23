@@ -1,10 +1,123 @@
+##################Creating qemu and raw disk#############
 #Verify CPU Support
 >lscpu | grep Virtualization
 (kvm_intel or kvm_amd)
 
+#Verify Kernel Modules
+>lsmod | grep kvm
+
 #Verify Permissions
 >ls -l /dev/kvm
 
-#Create the Disk Use qemu-img to create a qcow2
->qemu-img create -f qcow2 test-disk.qcow2 10G
-	inspect:bash qemu-img info test-disk.qcow2
+#Create the Disk using qemu-img to create a qcow2(thin)
+>qemu-img create -f qcow2 test-disk.qcow2(name) 10G(size)
+
+#Inspect Disk
+>sudo qemu-img info test-disk.qcow2
+
+#Convert QCOW2 to Raw
+>sudo qemu-img convert -f qcow2 -O raw test-disk.qcow2(qcow2 name) test-disk.img(raw disk name)
+
+#View Disks Details
+>ls -lh test-disk.*(name)
+
+######################Download and boot Alpine VM#####################
+#Download Boot Image(Alpine Linux)
+>wget https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-virt-3.20.0-x86_64.iso
+
+#Build and boot VM(AlpineLinux)
+>qemu-system-x86_64 
+	-enable-kvm 
+	-m 512 
+	-drive file=test-disk.qcow2(qcow2file),format=qcow2 
+	-cdrom alpine-virt-3.20.0-x86_64.iso
+	-boot d
+
+#System will boot and type the following at the local login:
+	User: root
+	Password: (None, just press Enter)
+	You are now inside VM
+	#See guest Kernel
+	>uname -a
+
+#Checking if disk is conected
+>sudo fdisk -l
+
+#Test Connectivity
+>sudo ip addr show
+>sudo ping -c <ip address>
+
+#Shutdown VM
+>poweroff
+
+############UDownloading Using libvirt to manage VM##########
+#Install libvirt
+>sudo apt install qemu-kvm libvirt-daemon-system virtinst -y
+
+	#Verify if service is running
+	>systemctl status libvirtd
+
+	#Add user to libvirt group
+	>sudo usermod -aG libvirt $USER
+
+#Create storage pool
+	#Define storage pool
+	>virsh pool-define-as lab-pool dir --target /var/lib/libvirt/images/lab-pool
+	
+	#Build, start, and auto-start pool
+	>virsh pool-build lab-pool
+	>virsh pool-start lab-pool
+	>virsh pool-autostart lab-pool
+
+	#Verify Pool state(active)
+	>virsh pool-list --all
+
+	#Create a Volume
+	>virsh vol-create-as lab-pool libvirt-test-disk.qcow2 10G --format qcow2
+
+	#Verify the Volume
+	>virsh vol-info libvirt-test-disk.qcow2 --pool lab-pool
+
+#Deploy a VM with virt-install
+	#copy the Alpine ISO to a location libvirt can access
+	>sudo cp alpine-virt-3.20.0-x86_64.iso /var/lib/libvirt/images/
+
+	#Now deploy
+	>virt-install \
+  	--name alpine-libvirt \
+  	--ram 512 \
+  	--vcpus 1 \
+  	--disk vol=lab-pool/libvirt-test-disk.qcow2 \
+  	--cdrom /var/lib/libvirt/images/alpine-virt-3.20.0-x86_64.iso \
+  	--os-variant alpinelinux3.19 \
+  	--graphics none \
+  	--console pty,target_type=serial \
+  	--boot cdrom
+
+
+#Manage VM with virsh
+	#List running VMs
+	>virsh list
+
+	#Get VM details:
+	>virsh dominfo alpine-libvirt
+
+	#Reconnect to the console (if you detached earlier):
+	>virsh console alpine-libvirt
+	
+	#Gracefully shut down the VM:
+	>virsh shutdown alpine-libvirt
+
+	#Start it again:
+	>virsh start alpine-libvirt
+
+	#Force stop (like pulling the power plug):
+	>virsh destroy alpine-libvirt
+
+	#Delete the VM definition (clean up when done):
+	>virsh undefine alpine-libvirt
+
+
+
+
+
