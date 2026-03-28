@@ -1,0 +1,48 @@
+#Using ip
+	#List all interfaces: 
+	>sudo ip link show
+
+	#View IP Addresses
+	>sudo ip addr show
+
+	#View the Routing Table
+	>sudo ip route list
+
+###############Namespace##########
+#Creating Namespace
+	>sudo ip netns add red(NamespaceName)
+
+#Verify Isolation: Run a command inside the RED namespace
+	>sudo ip netns exec red ip link show
+
+#Create a Virtual Cable(veth pair with tow end veth-blue, and veth-red)
+	>sudo ip link add veth-red type veth peer name veth-blue
+
+#Connect the Cables: Plug one-end into RED and the other into BLUE
+	>sudo ip link set veth-red netns red sudo ip link set veth-blue netns blue
+
+#Configure IPs:
+	>sudo ip netns exec red ip addr add 10.0.0.1/24 dev veth-red
+	>sudo ip netns exec red ip link set veth-red up
+
+#Test Connectivity:Ping BLUE from RED
+	>sudo ip netns exec red ping -c 3 10.0.0.2
+
+
+#########Linux Bridge##########
+#Create a Bridge:
+	>sudo ip link add name br-test(brigde-name) type bridge
+	>sudo ip link set br-test up
+
+#Inspect it:
+	>bash ip link show br-test
+
+#View bridge on proxmox
+	>ip link show vmbr0
+
+Clean Up/delete namespace(Optional but Recommended): 
+	>sudo ip netns delete red 
+	>sudo ip netns delete blue
+	>sudo ip link delete br-test
+
+
