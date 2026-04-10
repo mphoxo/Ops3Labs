@@ -1,0 +1,98 @@
+Part A: The Engine (Manual CLI Build)
+
+1. lscpu | grep virtualization
+   lsmod | grep kvm
+   ls -l /dev/kvm
+
+2. sudo qemu-img create -f qcow2 nova-prime.qcow2 12G
+   sudo qemu-img info nova-prime.qcow2
+   sudo qemu-img convert -f qcow2 -0 raw nova-prime.qcow2 nova-prime.img
+
+3. linux bridge
+   sudo ip link add name br-horizon type bridge 
+   sudo ip link set br-horizon up
+   sudo ip addr add 10.0.0.1/24 dev br-horizon
+   ip link show br-horizon
+
+4. Create a TAP interface for the VM
+   wget https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-virt-3.20.0-x86_64.iso
+   sudo ip tuntap add tap0 mode tap user $USER
+   sudo ip link set tap0 up
+   sudo ip link set tap0 master br-horizon
+
+   qemu-system-x86_64 \
+   -enable-kvm \
+   -m 768 \
+   -drive file=nova-prime.qcow2,format=qcow2 \
+   -cdrom alpine-virt-3.20.0-x86_64.iso \
+   -boot d -netdev tap,id=net0,ifname=tap0,script=no,downscript=no \
+   -device e1000,netdev=net0 \
+   -nographic
+   user:root, password = [enter]
+   uname -a
+   ip addr show
+
+5. sudo apt install -y lxc lxc-utils
+   sudo lxc-create -n pulse-prime -t download -- --dist alpine --release 3.20 --arch amd64
+   sudo lxc-start -n pulse-prime
+   sudo lxc-ls --fancy
+   sudo lxc-attach -n pulse-prime
+   
+6. VM
+   sudo lxc-attach ip addr add 10.0.0.2/24 eth0
+   sudo ip link set eth0 up
+
+   inside container
+   sudo lxc-attach -n pulse-prime -- ip addr add 10.0.0.3/24 dev eth0
+   sudo lxc-attach -n pulse-prime -- ip link set eth0 up  
+
+   sudo lxc-attach -n pulse-prime -- ping -c 3 10.0.0.3
+   ping -c 3 10.0.0.3
+
+Part B: The Management Plane
+1. sudo apt install qemu-kvm libvirt-daemon-system virtinst -y
+   sudo qemu-img -f qcow2 /var/lib/libvirt/images/orion-secundus.qcow2 15G
+   virt-install \
+   --name orion-secundus \
+   --ram 1024 \
+   --vcpus 1 \
+   --disk path=/var/lib/libvirt/images/orion-secundus.qcow2,format=qcow2 \
+   --network network=default,model=virtio \
+   --graphics vnc \
+   --cdrom /var/lib/libvirt/boot/ubuntu.iso
+   virsh list --all
+
+2. sudo lxc-create -n beam-secundus -t download -- \
+   --dist ubuntu --release jammy --arch amd64 \
+   --fssize 8G
+
+   echo "lxc.cgroup2.memory.max = 512M" | sudo tee -a /var/lib/lxc/beam-secundus/config
+
+   sudo lxc-start -n beam-secundus
+   sudo lxc-ls --fancy
+   sudo lxc-info -n beam-secundus
+   sudo lxc-attach -n beam-secundus
+
+3. sudo lxc-attach -n beam-secundus -- free -m
+   virsh snapshot-create-as orion-secundus snap1
+   virsh snapshot-list orion-secundus
+
+   qemu-img create -f qcow2 \
+   -b /var/lib/libvirt/images/orion-secundus \
+   /var/lib/libvirt/images/orion-secundus-clone.qcow2
+
+4. sudo lxc-cgroup -n beam-secundus memory.max 1536M
+   sudo lxc-attach -n beam-secundus -- free -m
+
+Part C- Convergence
+1. bridge link
+   ip link show br-horizon
+2. host vm
+   sudo tcpdump -i br-horizon icmp
+   sudo tcpdump -i br-horizon -n icmp -v
+
+   orion-secundus vm
+   virsh console orion-secundus
+   ip addr add 10.0.0.4/24 dev ens3
+   ip link set ens3 up
+   ping 10.0.0.3
